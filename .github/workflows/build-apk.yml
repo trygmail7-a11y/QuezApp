@@ -12,6 +12,34 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Unzip project if a zip was uploaded directly
+        run: |
+          ZIP_FILE=$(find . -maxdepth 2 -iname "*.zip" | head -n 1)
+          if [ -n "$ZIP_FILE" ]; then
+            echo "Found zip file: $ZIP_FILE - extracting..."
+            mkdir -p _extracted
+            unzip -o "$ZIP_FILE" -d _extracted
+
+            if [ -f "_extracted/settings.gradle" ]; then
+              cp -r _extracted/. .
+            else
+              SUBDIR=$(find _extracted -mindepth 1 -maxdepth 1 -type d | head -n 1)
+              if [ -n "$SUBDIR" ] && [ -f "$SUBDIR/settings.gradle" ]; then
+                cp -r "$SUBDIR"/. .
+              else
+                echo "Could not find settings.gradle inside the zip!"
+                find _extracted -maxdepth 3
+                exit 1
+              fi
+            fi
+            rm -rf _extracted
+          else
+            echo "No zip file found, assuming project files were uploaded directly."
+          fi
+
+          echo "Root now contains:"
+          ls -la
+
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
@@ -31,4 +59,3 @@ jobs:
         with:
           name: quiz-app-debug-apk
           path: app/build/outputs/apk/debug/app-debug.apk
-
